@@ -4,6 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:3002": "next dev --hostname 127.0.0.1 --port 3002",
+    "dev:turbo:3002": "next dev --turbopack --hostname 127.0.0.1 --port 3002",
+    "dev:webpack:3002": "next dev --webpack --hostname 127.0.0.1 --port 3002",
+    "kill:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/kill-dev-ports.ps1",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
