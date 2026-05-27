@@ -11,12 +11,15 @@ interface CardResult {
 }
 
 interface Props {
+  cardIndex: number; // 0-based index in the grid (stable for avatar cycling)
   cardResult: CardResult;
   drawnNumbers: number[];
   isCompact?: boolean;
 }
 
-const MultiCardKenoCard: React.FC<Props> = ({ cardResult, drawnNumbers, isCompact = false }) => {
+const MultiCardKenoCard: React.FC<Props> = ({ cardIndex, cardResult, drawnNumbers, isCompact = false }) => {
+  const avatarNum = ((cardIndex % 12) + 1).toString().padStart(2, "0");
+  const avatarSrc = `/gimboz/cutout/gimbo_${avatarNum}.png`;
   const isMatch = (num: number) => cardResult.matches.includes(num);
   const wasDrawn = (num: number) => drawnNumbers.includes(num);
 
@@ -43,7 +46,15 @@ const MultiCardKenoCard: React.FC<Props> = ({ cardResult, drawnNumbers, isCompac
     <div className={`bg-slate-900 border-2 ${borderColor} rounded-lg p-3 transition`}>
       {/* Card Header */}
       <div className="flex justify-between items-center mb-2">
-        <h5 className="text-xs font-bold text-purple-300">Card {cardResult.cardId}</h5>
+        <div className="flex items-center gap-2">
+          <img
+            src={avatarSrc}
+            alt={`Gimbo ${avatarNum}`}
+            className="w-7 h-7 object-contain"
+            draggable={false}
+          />
+          <h5 className="text-xs font-bold text-purple-300">Card {cardResult.cardId}</h5>
+        </div>
         <span className={`text-xs font-semibold px-2 py-0.5 rounded ${statusBg} ${statusText}`}>
           {cardResult.matchCount}M
         </span>

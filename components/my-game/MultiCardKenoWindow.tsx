@@ -107,9 +107,10 @@ const MultiCardKenoWindow: React.FC<Props> = ({
 
           {/* Card Grid - Responsive based on card count */}
           <div className={`grid ${gridClass} gap-4 mb-6`}>
-            {gameState.cardResults.slice(0, visibleCards).map((cardResult) => (
+            {gameState.cardResults.slice(0, visibleCards).map((cardResult, idx) => (
               <MultiCardKenoCard
                 key={cardResult.cardId}
+                cardIndex={idx}
                 cardResult={cardResult}
                 drawnNumbers={gameState.drawnNumbers}
                 isCompact={gameState.numCards > 4}
