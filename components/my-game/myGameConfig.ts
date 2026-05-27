@@ -1,62 +1,50 @@
 import { Game } from "@/lib/games";
 
+// Multi-Card Keno configuration + metadata for Ape Church template
+// This file MUST export `myGame` for the template home page.
+
 export const myGame: Game = {
-    title: "My Game",
-    description: "This is my game",
-    gameAddress: "0x1234567890123456789012345678901234567890",
-    gameBackground: "/my-game/background.png",
-    // animatedBackground: "/my-game/animated-background.mp4",
-    card: "/my-game/card.png", // 1:1 aspect ratio (e.g. 512x512)
-    banner: "/my-game/banner.png", // 2:1 aspect ratio (e.g. 1024x512)
-    advanceToNextStateAsset: "/my-game/advance-button.png",
-    themeColorBackground: "#F54927",
-    song: "/my-game/audio/song.mp3",
-    payouts: {
-        0: {
-            0: { 0: 2847392, 1: 847291, 2: 492837, 3: 183746, 4: 937284, 5: 628394 },
-            1: { 0: 729384, 1: 384729, 2: 293847, 3: 847293, 4: 293847, 5: 192837 },
-            2: { 0: 384729, 1: 192837, 2: 48293, 3: 29384, 4: 84729 },
-            3: { 0: 293847, 1: 84729, 2: 38472, 3: 92837 },
-            4: { 0: 284739, 1: 192837, 2: 48293, 4: 29384, 3: 84729 },
-            5: { 0: 192837, 1: 92837, 2: 38472, 3: 29384, 5: 19283 },
-        },
-        1: {
-            0: { 0: 847293, 1: 384729, 2: 293847, 3: 192837, 5: 92837, 4: 48293 },
-            1: { 1: 592837, 0: 483729, 2: 92837, 3: 38472, 5: 29384, 4: 19283 },
-            2: { 0: 192837, 2: 29384, 1: 92837, 3: 38472 },
-            3: { 0: 284739, 1: 84729, 3: 19283, 2: 48293 },
-            4: { 0: 183746, 1: 92837, 3: 29384, 4: 38472 },
-            5: { 0: 192837, 1: 48293, 2: 19283, 5: 9283 },
-        },
-        2: {
-            0: { 1: 384729, 2: 92837, 0: 592837, 3: 48293, 5: 29384, 4: 19283 },
-            1: { 0: 293847, 2: 38472, 1: 192837, 3: 29384, 5: 19283, 4: 48293 },
-            2: { 2: 59283, 0: 84729, 1: 48293, 3: 9283, 4: 38472, 5: 2938 },
-            3: { 0: 92837, 1: 48293 },
-            4: { 0: 84729, 1: 38472, 2: 9283 },
-            5: { 0: 48293, 1: 29384, 2: 3847 },
-        },
-        3: {
-            0: { 0: 483729, 1: 284739, 3: 59283, 2: 38472, 4: 19283 },
-            1: { 0: 293847, 1: 192837, 2: 48293, 3: 29384, 4: 38472, 5: 19283 },
-            2: { 0: 59283, 1: 29384, 2: 9283, 3: 3847 },
-            3: { 3: 48293, 0: 59283, 1: 29384, 2: 3847 },
-        },
-        4: {
-            0: { 0: 384729, 1: 192837, 2: 48293, 3: 29384, 4: 38472 },
-            1: { 1: 92837, 0: 192837, 4: 29384 },
-            2: { 0: 48293, 1: 29384 },
-            3: { 0: 38472, 1: 19283 },
-            4: { 4: 29384, 0: 48293, 1: 19283 },
-            5: { 0: 38472 },
-        },
-        5: {
-            0: { 0: 483729, 1: 284739, 2: 59283, 3: 38472, 4: 29384, 5: 19283 },
-            1: { 0: 192837, 1: 92837, 2: 29384, 3: 38472 },
-            2: { 0: 48293, 1: 29384, 2: 3847, 4: 9283 },
-            3: { 0: 38472, 1: 19283 },
-            4: { 0: 29384, 1: 19283 },
-            5: { 5: 29384, 0: 38472, 1: 19283, 2: 3847, 3: 9283, 4: 2938 },
-        },
-    },
+  title: "Multi-Card Keno",
+  description:
+    "Pick 2–10 numbers and play 4, 9, or 20 cards at once. Same draw across all cards. Fair, transparent paytable.",
+  gameAddress: "0x0000000000000000000000000000000000000000",
+
+  // These assets can be placeholders for local testing.
+  // Put actual files later under public/my-game/
+  gameBackground: "/my-game/background.png",
+  card: "/my-game/card.png",
+  banner: "/my-game/banner.png",
+  advanceToNextStateAsset: "/my-game/advance-button.png",
+  themeColorBackground: "#4C1D95",
+
+  // Optional music; can be omitted later.
+  song: "/my-game/audio/song.mp3",
+
+  // Not used by keno skeleton yet, but template expects this shape.
+  // Keep a minimal safe stub.
+  payouts: {},
 };
+
+// Keno game constants (used by the React components)
+export const PAYOUT_TABLE: Record<number, number> = {
+  10: 10000,
+  9: 1000,
+  8: 100,
+  7: 25,
+  6: 8,
+  5: 3,
+  4: 2,
+  3: 1,
+  2: 0,
+  1: 0,
+  0: 0,
+};
+
+export const MIN_NUMBERS = 2;
+export const MAX_NUMBERS = 10;
+export const MIN_BET = 0.1;
+export const MAX_BET = 100;
+export const CARD_COUNTS = [4, 9, 20];
+export const DEFAULT_CARD_COUNT = 4;
+export const NUM_DRAWN = 20;
+export const KENO_RANGE = 80;

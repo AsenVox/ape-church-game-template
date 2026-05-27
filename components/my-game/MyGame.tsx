@@ -1,307 +1,216 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { getPayout, randomBytes, Game } from "@/lib/games";
-import GameWindow from "@/components/shared/GameWindow";
-import MyGameWindow from "./MyGameWindow";
+import React, { useMemo, useState } from "react";
+import { CardCount, CARD_COUNTS, BetStep } from "./multiCardKenoConfig";
 import MyGameSetupCard from "./MyGameSetupCard";
-import { bytesToHex, Hex } from "viem";
-import { toast } from "sonner";
-// import './my-game.styles.css' use if needed
+import MyGameWindow from "./MyGameWindow";
+import { drawNumbers, countMatches, payoutForCard, randomCardPicks } from "./utils/kenoMath";
 
-interface MyGameComponentProps {
-    game: Game;
-}
-
-const MyGameComponent: React.FC<MyGameComponentProps> = ({ game }) => {
-    // Initializations
-    const themeColorBackground = game.themeColorBackground;
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const replayIdString = searchParams.get("id");
-    const walletBalance = 25; // TODO: get wallet balance from wallet
-    const [isGameOngoing, setIsGameOngoing] = React.useState<boolean>(false); // used for hiding global balance when game is ongoing
-    const [currentView, setCurrentView] = React.useState<0 | 1 | 2>(0); // 0: setup view, 1: ongoing view, 2: game over view
-
-    // Game related state and initializations
-    const [betAmount, setBetAmount] = React.useState<number>(0);
-    const [numberOfSpins, setNumberOfSpins] = React.useState<number>(10);
-    const [isLoading, setIsLoading] = React.useState<boolean>(false);
-    const [payout, setPayout] = React.useState<number | null>(null);
-    const [currentSpinIndex, setCurrentSpinIndex] = React.useState<number>(0);
-    const [gameOver, setGameOver] = React.useState<boolean>(false);
-    const [isSpinning, setIsSpinning] = React.useState<boolean>(false);
-    const shouldShowPNL: boolean = !!payout && payout > 1 && payout > betAmount;
-    const playAgainText = `Play Again (${numberOfSpins} More Spins)`
-
-    // Game ID and Random Word - used for replay mode
-    const [currentGameId, setCurrentGameId] = useState<bigint>(
-        replayIdString == null
-            ? BigInt(bytesToHex(new Uint8Array(randomBytes(32))))
-            : BigInt(replayIdString)
-    );
-    const [userRandomWord, setUserRandomWord] = useState<Hex>(
-        bytesToHex(new Uint8Array(randomBytes(32)))
-    );
-    // Set current game ID from replay ID string if available
-    useEffect(() => {
-        if (replayIdString !== null) {
-            if (replayIdString.length > 2) {
-                setIsLoading(true);
-                setCurrentGameId(BigInt(replayIdString));
-            }
-        }
-    }, [replayIdString]);
-
-
-
-    // HELPER FUNCTIONS
-    const formatSpinResults = (): number[][] => {
-        return [[0, 0, 0]];
-    };
-
-    const getSpinsLeft = (): number => {
-        return numberOfSpins - currentSpinIndex;
-    };
-
-    const getActiveBetAmount = (): number => {
-        return betAmount;
-    };
-
-    const getTotalPayout = (): number => {
-        return payout ?? 0;
-    };
-
-
-    // GAME FUNCTIONS
-    const playGame = async (
-        gameId?: bigint,
-        randomWord?: Hex,
-    ) => {
-        // update loading state and game ongoing state
-        setIsLoading(true);
-        setIsGameOngoing(true);
-
-        // Use provided gameId and randomWord if available, otherwise use state values
-        const gameIdToUse = gameId ?? currentGameId;
-        const randomWordToUse = randomWord ?? userRandomWord;
-
-        // simulate send transaction and wait for receipt
-        try {
-            const receiptSuccess = true;
-
-            if (receiptSuccess) {
-                toast.success("Transaction complete!");
-                setTimeout(() => {
-                    setIsLoading(false);
-                    setCurrentView(1); // Set to ongoing view
-                }, 1000);
-            }
-            else {
-                console.error("Something went wrong..");
-                toast.info("Something went wrong..");
-                setIsLoading(false);
-                setIsGameOngoing(false);
-            }
-        }
-        catch (error) {
-            // First, check for the specific error conditions to ignore
-            if (
-                (error instanceof Error &&
-                    error.message.includes("Transaction not found")) ||
-                (typeof error === "string" && error.includes("Transaction not found"))
-            ) {
-                console.warn("Ignoring a known timeout error.");
-                return; // Exit silently
-            }
-
-            // If the error was not ignored, handle it as a real failure
-            console.error("An unexpected error occurred:", error);
-            toast.error("An unexpected error occurred.");
-            setIsLoading(false);
-            setIsGameOngoing(false);
-        }
-    };
-
-    const handleStateAdvance = () => {
-        if (isSpinning == true) {
-            return;
-        }
-
-        if (currentSpinIndex < numberOfSpins) {
-            if (gameOver) {
-                setGameOver(false);
-                setIsGameOngoing(true);
-            }
-            setIsSpinning(true);
-        }
-
-        // simulate spin outcome - generate random numbers between 0-5 for each slot
-        const spinOutcome = [
-            Math.floor(Math.random() * 6),
-            Math.floor(Math.random() * 6),
-            Math.floor(Math.random() * 6)
-        ];
-        setTimeout(() => {
-            const betAmount = getActiveBetAmount();
-            setIsSpinning(false);
-
-            // Calculate payout for this spin: (betAmount * payoutFactor) / 10_000
-            const payoutFactor = getPayout(game.payouts, spinOutcome[0], spinOutcome[1], spinOutcome[2]);
-            const spinPayout = (betAmount * payoutFactor) / 10_000;
-
-            // Update spin index
-            const nextSpinIndex = currentSpinIndex + 1;
-            setCurrentSpinIndex(nextSpinIndex);
-
-            // Accumulate payout
-            setPayout((prevPayout) => {
-                if (prevPayout == null) {
-                    return spinPayout;
-                } else {
-                    return prevPayout + spinPayout;
-                }
-            });
-
-            // Check if this was the last spin
-            if (nextSpinIndex >= numberOfSpins) {
-                setCurrentView(2);
-                const wonPayout = spinPayout > 0;
-                if (wonPayout) {
-                    // add time for payout animation to end
-                    setTimeout(() => {
-                        setGameOver(true);
-                        setIsGameOngoing(false);
-                    }, 1500);
-                } else {
-                    setTimeout(() => {
-                        setGameOver(true);
-                        setIsGameOngoing(false);
-                    }, 800);
-                }
-            }
-        }, 1000);
-    };
-
-    const handleReset = (isPlayingAgain: boolean = false) => {
-        console.log("Reset game");
-
-        // Generate new game ID and user word if not playing again
-        if (isPlayingAgain === false) {
-            const newGameId = BigInt(bytesToHex(new Uint8Array(randomBytes(32))));
-            const newUserWord = bytesToHex(new Uint8Array(randomBytes(32)));
-            setCurrentGameId(newGameId);
-            setUserRandomWord(newUserWord);
-        }
-
-        // Reset game states
-        setIsSpinning(false);
-        setCurrentView(0); // Set to setup view
-        setPayout(null);
-        setGameOver(false);
-        setCurrentSpinIndex(0);
-        setIsGameOngoing(false);
-
-        // Reset replay ID if in replay mode
-        if (replayIdString !== null) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.delete("id");
-            router.replace(`?${params.toString()}`, { scroll: false });
-        }
-    };
-
-    const handlePlayAgain = async () => {
-        console.log("Play Again button clicked");
-
-        // Define the new gameId first as a const
-        const newGameId = BigInt(bytesToHex(new Uint8Array(randomBytes(32))));
-        const newUserWord = bytesToHex(new Uint8Array(randomBytes(32)));
-
-        // Set the state for the new gameId and userRandomWord
-        setCurrentGameId(newGameId);
-        setUserRandomWord(newUserWord);
-
-        // Reset game states (without generating new gameId/userRandomWord)
-        handleReset(true);
-
-        // Call playGame with the new gameId and userRandomWord
-        await playGame(newGameId, newUserWord);
-    };
-
-    const handleRewatch = () => {
-        console.log("Replay button clicked");
-
-        setCurrentView(1); // Set to ongoing view
-        setCurrentSpinIndex(0);
-        setPayout(null);
-        setGameOver(false);
-        setIsSpinning(false);
-        setIsGameOngoing(false);
-    };
-
-    return (
-        <div>
-            <div className="flex flex-col lg:flex-row gap-4 sm:gap-8 lg:gap-10">
-                {/* Game Window */}
-                <GameWindow
-                    game={game}
-                    currentGameId={currentGameId}
-                    isLoading={isLoading}
-                    isGameFinished={gameOver}
-                    onPlayAgain={handlePlayAgain}
-                    playAgainText={playAgainText}
-                    onRewatch={handleRewatch}
-                    onReset={() => handleReset(false)}
-                    betAmount={getActiveBetAmount()}
-                    payout={payout}
-                    inReplayMode={replayIdString !== null}
-                    isUserOriginalPlayer={true}
-                    showPNL={shouldShowPNL}
-                    isGamePaused={false}
-                    resultModalDelayMs={1000}
-                >
-                    <MyGameWindow
-                        game={game}
-                        isSpinning={isSpinning}
-                        currentSpinIndex={currentSpinIndex}
-                        gameCompleted={gameOver}
-                        spinResults={formatSpinResults()}
-                        betAmount={getActiveBetAmount()}
-                        payoutAmount={getTotalPayout()}
-                    />
-                </GameWindow>
-
-                {/* Game Setup Card */}
-                <MyGameSetupCard
-                    game={game}
-                    onPlay={async () => await playGame()}
-                    onSpin={handleStateAdvance}
-                    onRewatch={handleRewatch}
-                    onReset={() => handleReset(false)}
-                    onPlayAgain={async () => await handlePlayAgain()}
-                    playAgainText={playAgainText}
-                    currentView={currentView}
-                    betAmount={currentView == 0 ? betAmount : getActiveBetAmount()}
-                    setBetAmount={setBetAmount}
-                    numberOfSpins={numberOfSpins}
-                    setNumberOfSpins={setNumberOfSpins}
-                    isLoading={isLoading}
-                    payout={payout}
-                    spinsLeft={getSpinsLeft()}
-                    jackpotMultiplier={getPayout(game.payouts, 0, 0, 0) / 10000}
-                    inReplayMode={replayIdString !== null}
-                    account={undefined}
-                    walletBalance={walletBalance}
-                    playerAddress={undefined}
-                    isGamePaused={false}
-                    profile={undefined}
-                    minBet={1}
-                    maxBet={100}
-                />
-            </div>
-        </div>
-    );
+export type KenoCard = {
+  id: number;
+  picks: number[]; // length=10
+  bet: BetStep;
 };
 
-export default MyGameComponent;
+export type CardResult = {
+  id: number;
+  matches: number;
+  payout: number;
+};
+
+export type KenoGameState = {
+  cardCount: CardCount;
+  cards: KenoCard[];
+  activeCardIndex: number;
+  speed: 0 | 1 | 2; // 0 slow, 1 med, 2 fast
+  drawn: number[];
+  revealedCount: number; // animation progress
+  results: CardResult[];
+  totalBet: number;
+  totalPayout: number;
+};
+
+const DEFAULT_BET: BetStep = 1;
+
+function makeCards(count: CardCount): KenoCard[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i + 1,
+    picks: [],
+    bet: DEFAULT_BET,
+  }));
+}
+
+const MyGame: React.FC = () => {
+  const [currentView, setCurrentView] = useState<0 | 1 | 2>(0); // 0 setup, 1 draw/ongoing, 2 game over
+
+  // Local-only test bankroll (fake money)
+  const [bankroll, setBankroll] = useState<number>(10000);
+
+  const [state, setState] = useState<KenoGameState>(() => ({
+    cardCount: 4,
+    cards: makeCards(4),
+    activeCardIndex: 0,
+    speed: 1,
+    drawn: [],
+    revealedCount: 0,
+    results: [],
+    totalBet: 0,
+    totalPayout: 0,
+  }));
+
+  const overlaps = useMemo(() => {
+    const freq = new Map<number, number>();
+    for (const c of state.cards) {
+      for (const n of c.picks) freq.set(n, (freq.get(n) ?? 0) + 1);
+    }
+    return freq;
+  }, [state.cards]);
+
+  const totalBet = useMemo(() => state.cards.reduce((s, c) => s + (c.bet ?? 0), 0), [state.cards]);
+
+  const setCardCount = (count: CardCount) => {
+    setState((prev) => ({
+      ...prev,
+      cardCount: count,
+      cards: makeCards(count),
+      activeCardIndex: 0,
+      drawn: [],
+      revealedCount: 0,
+      results: [],
+      totalBet: 0,
+      totalPayout: 0,
+    }));
+    setCurrentView(0);
+  };
+
+  const setSpeed = (speed: 0 | 1 | 2) => setState((p) => ({ ...p, speed }));
+
+  const setActiveCardIndex = (idx: number) => setState((p) => ({ ...p, activeCardIndex: idx }));
+
+  const updateActiveCardPicks = (nextPicks: number[]) => {
+    setState((prev) => {
+      const cards = [...prev.cards];
+      cards[prev.activeCardIndex] = { ...cards[prev.activeCardIndex], picks: nextPicks };
+      return { ...prev, cards };
+    });
+  };
+
+  const updateActiveCardBet = (bet: BetStep) => {
+    setState((prev) => {
+      const cards = [...prev.cards];
+      cards[prev.activeCardIndex] = { ...cards[prev.activeCardIndex], bet };
+      return { ...prev, cards };
+    });
+  };
+
+  const copyBetToAll = () => {
+    setState((prev) => {
+      const bet = prev.cards[prev.activeCardIndex].bet;
+      return { ...prev, cards: prev.cards.map((c) => ({ ...c, bet })) };
+    });
+  };
+
+  const autoPickActive = () => updateActiveCardPicks(randomCardPicks());
+
+  const clearActive = () => updateActiveCardPicks([]);
+
+  // Direct play: setup -> draw (no separate overview screen)
+  const playGame = () => {
+    placeBetAndDraw();
+  };
+
+  const placeBetAndDraw = () => {
+    // Allow 0–10 picks per card. Only "active" cards (>=1 pick) participate.
+    const activeCards = state.cards.filter((c) => c.picks.length >= 1);
+    if (activeCards.length === 0) {
+      alert("Pick at least 1 number on at least 1 card.");
+      return;
+    }
+
+    const drawn = drawNumbers();
+    const results: CardResult[] = state.cards.map((c) => {
+      const m = countMatches(c.picks, drawn);
+      const payout = payoutForCard(c.picks.length, m, c.bet);
+      return { id: c.id, matches: m, payout };
+    });
+    const totalPayout = results.reduce((s, r) => s + r.payout, 0);
+
+    setState((prev) => ({
+      ...prev,
+      drawn,
+      revealedCount: 0,
+      results,
+      totalBet,
+      totalPayout,
+    }));
+
+    // Update local fake bankroll
+    setBankroll((b) => b - totalBet + totalPayout);
+
+    setCurrentView(1);
+  };
+
+  const handleReset = () => {
+    setState((prev) => ({
+      ...prev,
+      cards: makeCards(prev.cardCount),
+      activeCardIndex: 0,
+      drawn: [],
+      revealedCount: 0,
+      results: [],
+      totalBet: 0,
+      totalPayout: 0,
+    }));
+    setCurrentView(0);
+  };
+
+  const handlePlayAgain = () => {
+    // keep cards as-is, just redraw
+    placeBetAndDraw();
+  };
+
+  return (
+    <div className="w-full h-full p-4 text-white">
+      {currentView === 0 && (
+        <MyGameSetupCard
+          cardCount={state.cardCount}
+          cardCounts={CARD_COUNTS as unknown as CardCount[]}
+          cards={state.cards}
+          activeCardIndex={state.activeCardIndex}
+          overlaps={overlaps}
+          totalBet={totalBet}
+          onSetCardCount={setCardCount}
+          onSetActiveCardIndex={setActiveCardIndex}
+          onUpdateActiveCardPicks={updateActiveCardPicks}
+          onUpdateActiveCardBet={updateActiveCardBet}
+          onCopyBetToAll={copyBetToAll}
+          onAutoPickActive={autoPickActive}
+          onClearActive={clearActive}
+          bankroll={bankroll}
+          onAddBankroll={() => setBankroll((b) => b + 10000)}
+          onResetBankroll={() => setBankroll(10000)}
+          speed={state.speed}
+          onChangeSpeed={setSpeed}
+          onPlay={playGame}
+        />
+      )}
+
+      {currentView === 1 && (
+        <MyGameWindow
+          mode="draw"
+          cards={state.cards}
+          overlaps={overlaps}
+          totalBet={state.totalBet}
+          drawn={state.drawn}
+          results={state.results}
+          totalPayout={state.totalPayout}
+          onBack={() => setCurrentView(0)}
+          onReset={handleReset}
+          onPlayAgain={handlePlayAgain}
+        />
+      )}
+    </div>
+  );
+};
+
+export default MyGame;

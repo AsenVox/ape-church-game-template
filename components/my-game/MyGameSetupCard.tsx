@@ -1,580 +1,268 @@
-import React from "react";
-import Image from "next/image";
-import {
-    Card,
-    CardContent,
-    CardFooter,
-} from "@/components/ui/card";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Info } from "lucide-react";
-import { Game } from "@/lib/games";
-import BetAmountInput from "../shared/BetAmountInput";
-import { CustomSlider } from "../shared/CustomSlider";
-import ChipSelection, { Chip } from "../shared/ChipSelection";
+"use client";
 
-interface MyGameSetupCardProps {
-    game: Game;
-    onPlay: () => void;
-    onSpin: () => void;
-    onRewatch: () => void;
-    onReset: () => void;
-    onPlayAgain: () => void;
-    playAgainText?: string;
-    currentView: 0 | 1 | 2; // 0 = setup, 1 = ongoing, 2 = finished
+import React, { useMemo } from "react";
+import { BET_STEPS, BetStep, CardCount, SPOTS_PER_CARD } from "./multiCardKenoConfig";
+import type { KenoCard } from "./MyGame";
+import PaytablePreview from "./components/PaytablePreview";
+import SpeedSelector from "./components/SpeedSelector";
 
-    // game related data
-    betAmount: number;
-    setBetAmount: (amount: number) => void;
-    numberOfSpins: number;
-    setNumberOfSpins: (spins: number) => void;
-    isLoading: boolean;
-    payout: number | null;
-    spinsLeft: number;
-    jackpotMultiplier: number;
-    inReplayMode: boolean;
-
-    account?: any;
-    walletBalance: number;
-    playerAddress?: string;
-    isGamePaused?: boolean;
-    profile?: any;
-    minBet: number;
-    maxBet: number;
-}
-
-const MAX_SPINS = 15;
-const JACKPOT_AMOUNT_INFO =
-    "The jackpot amount is the maximum payout you can get from a single spin.";
-const MAX_PROFIT_INFO =
-    "The maximum profit you can make from a single game is the jackpot amount minus the bet amount.";
-
-const MyGameSetupCard: React.FC<MyGameSetupCardProps> = ({
-    game,
-    onPlay,
-    onSpin,
-    onRewatch,
-    onReset,
-    onPlayAgain,
-    playAgainText = "Play Again",
-    currentView,
-    betAmount,
-    setBetAmount,
-    numberOfSpins,
-    setNumberOfSpins,
-    isLoading,
-    payout,
-    spinsLeft,
-    jackpotMultiplier,
-    inReplayMode,
-    account = undefined,
-    playerAddress = undefined,
-    walletBalance,
-    isGamePaused = false,
-    profile = undefined,
-    maxBet,
-    minBet,
-}) => {
-    const themeColorBackground = game.themeColorBackground;
-    // const themeColorText = game.themeColorText;
-
-    const usdMode = false;
-
-    // Demo chip data for this example game
-    const chips: Chip[] = [
-        { id: "1", value: 1, image: "/shared/chips/chip_1.png" },
-        { id: "5", value: 5, image: "/shared/chips/chip_5.png" },
-        { id: "10", value: 10, image: "/shared/chips/chip_10.png" },
-        { id: "25", value: 25, image: "/shared/chips/chip_25.png" },
-    ];
-
-    const [selectedChipId, setSelectedChipId] = React.useState<string | null>(null);
-
-    const getCurrentWalletAmount = (): number => {
-        return walletBalance;
-    };
-
-    const getCurrentWalletAmountMinusReduction = (): number => {
-        return walletBalance;
-    };
-
-    const getCurrentWalletAmountString = (): string => {
-        return `${walletBalance.toFixed(2)} APE`;
-    };
-
-    const SpinsLeftBlock = (hideOnDesktop: boolean) => {
-        return (
-            <div
-                className={`${hideOnDesktop ? "lg:hidden" : "hidden lg:block"
-                    } text-center font-nohemia`}
-            >
-                <p className="text-lg font-medium text-[#91989C]">Spins Left</p>
-                <p
-                    className="mt-2 font-semibold text-2xl sm:text-5xl"
-                    style={{ color: themeColorBackground }}
-                >
-                    {spinsLeft} / {numberOfSpins}
-                </p>
-            </div>
-        );
-    };
-
-    const getBetAmountText = (): string => {
-        return `${(betAmount || 0).toLocaleString([], {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 3,
-        })} APE`;
-
-    };
-
-    const getTotalBuyInText = (): string => {
-        return `${((betAmount || 0) * numberOfSpins).toLocaleString([], {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 3,
-        })} APE`;
-    };
-
-    const getTotalPayoutText = (): string => {
-        return `${(payout || 0).toLocaleString([], {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 3,
-        })} APE`;
-    };
-
-    const getJackpotAmount = (): number => {
-        const betPerSpin = betAmount / (numberOfSpins || 1);
-        return betPerSpin * jackpotMultiplier;
-    };
-
-    const getJackpotAmountString = (): string => {
-        const jackpotAmount = getJackpotAmount();
-        return `${jackpotAmount.toLocaleString([], {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 3,
-        })} APE`;
-    };
-
-    const betAmountPerSpinString = (): string => {
-        const betAmountPerSpin = betAmount / (numberOfSpins || 1);
-
-        return `${betAmountPerSpin.toLocaleString([], {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 3,
-        })} APE`;
-    };
-
-    const getMaxProfitString = (): string => {
-        return `${(getJackpotAmount() || 0).toLocaleString([], {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 3,
-        })} APE`;
-    };
-
-    const ShowInUsdAndStats = (invertOnDesktop: boolean) => {
-        const showGreenText = (payout || 0) > (betAmount || 0) * numberOfSpins;
-
-        return (
-            <div
-                className={`${invertOnDesktop ? "flex-col-reverse lg:flex-col" : "flex-col"
-                    } font-roboto flex gap-12 lg:gap-8`}
-            >
-                {inReplayMode && (
-                    <p
-                        className="mt-2 font-semibold text-3xl sm:text-3xl text-center"
-                        style={{ color: themeColorBackground }}
-                    >
-                        Replay Mode
-                    </p>
-                )}
-
-                {/* show in usd option */}
-                <div className="flex items-center justify-between gap-2">
-                    <div>
-                        <p className="text-foreground text-lg font-semibold">
-                            Show Bets in USD
-                        </p>
-                        <p className="text-sm">
-                            Your bets are valued in {usdMode ? "US Dollars" : "APE"}
-                        </p>
-                    </div>
-                    <Switch
-                        checked={usdMode}
-                        onCheckedChange={() => {
-                            // setUsdMode(!usdMode);
-                        }}
-                        aria-readonly
-                    // themeColor={themeColorBackground}
-                    />
-                </div>
-
-                {/* stats */}
-                <div className="w-full flex flex-col items-center gap-2 font-medium text-xs text-[#91989C]">
-                    {/* bet per spin */}
-                    <div className="w-full flex justify-between items-center gap-2">
-                        <p>Bet Per Spin</p>
-                        <p className="text-right">{getBetAmountText()}</p>
-                    </div>
-                    {/* bet per spin */}
-                    <div className="w-full flex justify-between items-center gap-2">
-                        <p>Total Buy In</p>
-                        <p className="text-right">{getTotalBuyInText()}</p>
-                    </div>
-                    {/* total pay out */}
-                    <div className="w-full flex justify-between items-center gap-2">
-                        <p>Total Pay Out</p>
-                        <p className={`text-right ${showGreenText ? "text-success" : ""}`}>
-                            {getTotalPayoutText()}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    const ShowInUsdAndStatsFinalView = (invertOnDesktop: boolean) => {
-        const showGreenText = (payout || 0) > (betAmount || 0) * numberOfSpins;
-
-        return (
-            <div
-                className={`${invertOnDesktop ? "flex-col-reverse lg:flex-col" : "flex-col"
-                    } font-roboto flex gap-12 lg:gap-8`}
-            >
-                {inReplayMode && (
-                    <p
-                        className="mt-2 font-semibold text-3xl sm:text-3xl text-center"
-                        style={{ color: themeColorBackground }}
-                    >
-                        Replay Mode
-                    </p>
-                )}
-
-                {/* show in usd option */}
-                <div className="flex items-center justify-between gap-2">
-                    <div>
-                        <p className="text-foreground text-lg font-semibold">
-                            Show Bets in USD
-                        </p>
-                        <p className="text-sm">Your bets are valued in US Dollars</p>
-                    </div>
-                    <Switch
-                        checked={usdMode}
-                        onCheckedChange={() => {
-                            // setUsdMode(!usdMode);
-                        }}
-                        aria-readonly
-                    // themeColor={themeColorBackground}
-                    />
-                </div>
-
-                {/* stats */}
-                <div className="w-full flex flex-col items-center gap-2 font-medium text-xs text-[#91989C]">
-                    {/* bet per spin */}
-                    <div className="w-full flex justify-between items-center gap-2">
-                        <p>Bet Per Spin</p>
-                        <p className="text-right">{getBetAmountText()}</p>
-                    </div>
-                    {/* bet per spin */}
-                    <div className="w-full flex justify-between items-center gap-2">
-                        <p>Total Buy In</p>
-                        <p className="text-right">{getTotalBuyInText()}</p>
-                    </div>
-                    {/* total pay out */}
-                    <div className="w-full flex justify-between items-center gap-2">
-                        <p>Total Pay Out</p>
-                        <p className={`text-right ${showGreenText ? "text-success" : ""}`}>
-                            {getTotalPayoutText()}
-                        </p>
-                    </div>
-                    <div className="w-full flex justify-between items-center gap-2">
-                        <p>Wallet Balance</p>
-                        <p className="text-right">{getCurrentWalletAmountString()}</p>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    const canReplay = (): boolean => {
-        if (!playerAddress) {
-            return false;
-        }
-        if (!account) {
-            return false;
-        }
-        if (inReplayMode) {
-            return false;
-        }
-        return playerAddress.toLowerCase() === account.address.toLowerCase();
-    };
-
-    return (
-        <Card className="lg:basis-1/3 p-6 flex flex-col">
-            {currentView === 0 && (
-                <>
-                    <CardContent className="font-roboto">
-                        {/* place your bet button - mobile */}
-                        <Button
-                            onClick={onPlay}
-                            className="lg:hidden w-full"
-                            style={{
-                                backgroundColor: themeColorBackground,
-                                borderColor: themeColorBackground,
-                            }}
-                            disabled={betAmount === null || betAmount <= 0 || isGamePaused}
-                        >
-                            Place Your Bet
-                        </Button>
-
-                        {/* bet amount */}
-                        <div className="mt-5">
-                            <BetAmountInput
-                                min={0}
-                                max={getCurrentWalletAmountMinusReduction()}
-                                step={0.1}
-                                value={betAmount}
-                                onChange={setBetAmount}
-                                balance={getCurrentWalletAmount()}
-                                usdMode={usdMode}
-                                setUsdMode={() => { }}
-                                disabled={isLoading}
-                                themeColorBackground={themeColorBackground}
-                            />
-                        </div>
-
-                        {/* demo chip selection - note that this would not be used with the BetAmountInput */}
-                        <ChipSelection
-                            chips={chips}
-                            selectedChipId={selectedChipId}
-                            onChipSelect={(chip) => setSelectedChipId(chip.id)}
-                            onRemoveAllBets={() => setSelectedChipId(null)}
-                        />
-
-                        {/* number of spins */}
-                        <div className="mt-8">
-                            <CustomSlider
-                                label="Number of Spins"
-                                min={1}
-                                max={MAX_SPINS}
-                                step={1}
-                                value={numberOfSpins}
-                                onChange={setNumberOfSpins}
-                                presets={[5, 10, 15]}
-                                themeColor={themeColorBackground}
-                            />
-                        </div>
-                    </CardContent>
-
-                    <div className="grow"></div>
-
-                    <CardFooter className="mt-8 w-full flex flex-col font-roboto">
-                        {/* stats */}
-                        <div className="w-full flex flex-col items-center gap-2 font-medium text-xs text-[#91989C]">
-                            <div className="w-full flex justify-between items-center gap-2">
-                                <p>Jackpot Multiplier</p>
-                                <p className="text-right">{jackpotMultiplier}x</p>
-                            </div>
-                            {/* bet amount per spin */}
-                            <div className="w-full flex justify-between items-center gap-2">
-                                <p>Bet Amount per Spin</p>
-                                <p className="text-right">{betAmountPerSpinString()}</p>
-                            </div>
-
-                            {/* jackpot amount */}
-                            <div className="w-full flex justify-between items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                    <p>Jackpot Amount</p>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger>
-                                                <Info size={16} />
-                                            </TooltipTrigger>
-                                            <TooltipContent
-                                            // themeColor={themeColorBackground}
-                                            // themeColorText={themeColorText}
-                                            >
-                                                <p>{JACKPOT_AMOUNT_INFO}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </div>
-                                <p className="text-right">{getJackpotAmountString()}</p>
-                            </div>
-                            {/* max profit per game */}
-                            <div className="w-full flex justify-between items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                    <p>Max Profit per Game</p>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger>
-                                                <Info size={16} />
-                                            </TooltipTrigger>
-                                            <TooltipContent
-                                            // themeColor={themeColorBackground}
-                                            // themeColorText={themeColorText}
-                                            >
-                                                <p>{MAX_PROFIT_INFO}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </div>
-                                <p className="text-right">{getMaxProfitString()}</p>
-                            </div>
-                            <div className="w-full flex justify-between items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                    <p>Max Bet Per Game</p>
-                                </div>
-                                <p className="text-right">
-                                    {maxBet.toLocaleString([], { maximumFractionDigits: 0 })} APE
-                                </p>
-                            </div>
-                        </div>
-
-                        <Button
-                            onClick={onPlay}
-                            className="hidden lg:flex mt-6 w-full"
-                            style={{
-                                backgroundColor: themeColorBackground,
-                                borderColor: themeColorBackground,
-                            }}
-                            disabled={betAmount === null || betAmount <= 0 || isGamePaused}
-                        >
-                            Place Your Bet
-                        </Button>
-                    </CardFooter>
-                </>
-            )}
-            {currentView === 1 && (
-                <CardContent className="grow font-roboto flex flex-col-reverse lg:flex-col lg:justify-between gap-8">
-                    {/* show in usd option + stats */}
-                    {ShowInUsdAndStats(true)}
-
-                    {/* spins left (desktop) */}
-                    {SpinsLeftBlock(false)}
-
-                    {/* spins left + spin button */}
-                    <div className="flex lg:flex-col justify-evenly items-center">
-                        {/* spins left (mobile + tablet) */}
-                        {SpinsLeftBlock(true)}
-
-                        {/* spin button + auto spin */}
-                        <div className="font-roboto flex flex-col items-center gap-3">
-                            {game.advanceToNextStateAsset ? (
-                                <button onClick={onSpin} className="w-full">
-                                    <Image
-                                        src={game.advanceToNextStateAsset}
-                                        alt="Spin Button"
-                                        width={196.5}
-                                        height={179.82}
-                                        className="transition-transform duration-100 ease-out active:scale-97 w-[109px] h-[100px] sm:w-[131px] sm:h-[120px] lg:w-[184px] lg:h-[168.35px]"
-                                    />
-                                </button>
-                            ) : (
-                                <Button onClick={onSpin} className="w-full">
-                                    Spin
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            )}
-            {currentView === 2 && (
-                <CardContent className="grow font-roboto flex flex-col lg:justify-between gap-8">
-                    {/* action buttons - mobile */}
-                    <div className="lg:hidden">
-                        {canReplay() ? (
-                            <Button
-                                className="w-full"
-                                style={{
-                                    backgroundColor: themeColorBackground,
-                                    borderColor: themeColorBackground,
-                                }}
-                                onClick={onPlayAgain}
-                                disabled={isGamePaused}
-                            >
-                                {playAgainText}
-                            </Button>
-                        ) : (
-                            <Button
-                                className="w-full"
-                                variant="secondary"
-                                style={{
-                                    backgroundColor: themeColorBackground,
-                                    borderColor: themeColorBackground,
-                                }}
-                                onClick={onRewatch}
-                            >
-                                Rewatch Spins
-                            </Button>
-                        )}
-
-                        <Button
-                            className="w-full mt-3"
-                            variant="secondary"
-                            onClick={onReset}
-                        >
-                            Change Bet
-                        </Button>
-                    </div>
-
-                    {/* show in usd option + stats */}
-                    {ShowInUsdAndStatsFinalView(false)}
-
-                    {/* spins left */}
-                    {SpinsLeftBlock(false)}
-
-                    {/* replay + claim buttons */}
-                    <div className="flex lg:flex-col justify-evenly items-center">
-                        {/* spins left (mobile + tablet) */}
-                        {SpinsLeftBlock(true)}
-                    </div>
-
-                    {/* spin button + auto spin */}
-                    <CardFooter className="w-full hidden lg:block">
-                        <div className="w-full flex flex-col gap-4">
-                            {canReplay() ? (
-                                <Button
-                                    className="w-full"
-                                    style={{
-                                        backgroundColor: themeColorBackground,
-                                        borderColor: themeColorBackground,
-                                    }}
-                                    onClick={onPlayAgain}
-                                    disabled={isGamePaused}
-                                >
-                                    {playAgainText}
-                                </Button>
-                            ) : (
-                                <Button
-                                    className="w-full"
-                                    style={{
-                                        backgroundColor: themeColorBackground,
-                                        borderColor: themeColorBackground,
-                                    }}
-                                    onClick={onRewatch}
-                                >
-                                    Rewatch Spins
-                                </Button>
-                            )}
-
-                            <Button
-                                className="w-full"
-                                variant="secondary"
-                                onClick={onReset}
-                            >
-                                Change Bet
-                            </Button>
-                        </div>
-                    </CardFooter>
-                </CardContent>
-            )}
-        </Card>
-    );
+type Props = {
+  cardCount: CardCount;
+  cardCounts: CardCount[];
+  cards: KenoCard[];
+  activeCardIndex: number;
+  overlaps: Map<number, number>;
+  totalBet: number;
+  onSetCardCount: (c: CardCount) => void;
+  onSetActiveCardIndex: (idx: number) => void;
+  onUpdateActiveCardPicks: (picks: number[]) => void;
+  onUpdateActiveCardBet: (bet: BetStep) => void;
+  onCopyBetToAll: () => void;
+  onAutoPickActive: () => void;
+  onClearActive: () => void;
+  bankroll: number;
+  onAddBankroll: () => void;
+  onResetBankroll: () => void;
+  speed: 0 | 1 | 2;
+  onChangeSpeed: (s: 0 | 1 | 2) => void;
+  onPlay: () => void;
 };
 
-export default MyGameSetupCard;
+function isOverlap(overlaps: Map<number, number>, n: number) {
+  return (overlaps.get(n) ?? 0) >= 2;
+}
+
+export default function MyGameSetupCard(props: Props) {
+  const active = props.cards[props.activeCardIndex];
+
+  const pickedSet = useMemo(() => new Set(active.picks), [active.picks]);
+
+  // Card color palette (repeatable)
+  const CARD_COLORS = [
+    "#ef4444", // red
+    "#22c55e", // green
+    "#3b82f6", // blue
+    "#a855f7", // purple
+    "#f59e0b", // amber
+    "#06b6d4", // cyan
+    "#f97316", // orange
+    "#84cc16", // lime
+    "#ec4899", // pink
+    "#14b8a6", // teal
+  ];
+  const activeColor = CARD_COLORS[(active.id - 1) % CARD_COLORS.length];
+
+  const togglePick = (n: number) => {
+    const next = new Set(active.picks);
+    if (next.has(n)) next.delete(n);
+    else {
+      if (next.size >= SPOTS_PER_CARD) return;
+      next.add(n);
+    }
+    props.onUpdateActiveCardPicks(Array.from(next).sort((a, b) => a - b));
+  };
+
+  const canGoOverview = props.cards.some((c) => c.picks.length >= 1);
+  const activeCount = props.cards.filter((c) => c.picks.length >= 1).length;
+
+  return (
+    <div className="w-full max-w-6xl mx-auto bg-slate-900/40 border border-purple-700 rounded-xl p-4" style={{ borderColor: activeColor }}>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <div>
+          <h2 className="text-2xl font-bold text-purple-200">Multi-Card Keno</h2>
+          <p className="text-sm text-slate-300">Vegas-style: each card has its own 10 picks + its own bet.</p>
+        </div>
+
+        <div className="flex gap-2">
+          {props.cardCounts.map((c) => (
+            <button
+              key={c}
+              onClick={() => props.onSetCardCount(c)}
+              className={`px-3 py-2 rounded font-semibold border ${
+                props.cardCount === c
+                  ? "bg-purple-600 border-purple-300"
+                  : "bg-slate-800 border-slate-700 hover:bg-slate-700"
+              }`}
+            >
+              {c} Cards
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Card selector */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap gap-2">
+          {props.cards.map((c, idx) => {
+            const complete = c.picks.length === SPOTS_PER_CARD;
+            return (
+              <button
+                key={c.id}
+                onClick={() => props.onSetActiveCardIndex(idx)}
+                style={idx === props.activeCardIndex ? { backgroundColor: `${activeColor}55`, borderColor: activeColor } : undefined}
+                className={`px-2 py-1 rounded border text-sm ${
+                  idx === props.activeCardIndex
+                    ? "border-2 text-white"
+                    : "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200"
+                }`}
+              >
+                Card {String.fromCharCode(65 + (c.id - 1))}
+                <span className={`ml-2 text-xs ${complete ? "text-green-300" : "text-slate-400"}`}>
+                  {c.picks.length}/{SPOTS_PER_CARD}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="text-right">
+          <div className="text-xs text-slate-400">Bankroll</div>
+          <div className="text-lg font-bold text-slate-100">{props.bankroll} credits</div>
+          <div className="mt-2 flex flex-col gap-2 items-end">
+            <SpeedSelector speed={props.speed} onChange={props.onChangeSpeed} />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={props.onAddBankroll}
+                className="px-2 py-1 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs"
+              >
+                +10k
+              </button>
+              <button
+                onClick={props.onResetBankroll}
+                className="px-2 py-1 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Active card controls */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <div className="bg-slate-900/60 border border-slate-700 rounded p-3">
+          <div className="text-sm font-semibold text-slate-200 mb-2">Active Card</div>
+          <div className="text-slate-300">Card {String.fromCharCode(65 + (active.id - 1))}</div>
+          <div className="text-xs text-slate-400 mt-1">Pick exactly {SPOTS_PER_CARD} numbers.</div>
+
+          <div className="mt-3">
+            <div className="text-sm font-semibold text-slate-200 mb-2">Bet (credits)</div>
+            <div className="flex flex-wrap gap-2">
+              {BET_STEPS.map((b) => (
+                <button
+                  key={b}
+                  onClick={() => props.onUpdateActiveCardBet(b)}
+                  className={`px-3 py-1 rounded border text-sm font-semibold ${
+                    active.bet === b
+                      ? "bg-purple-600 border-purple-300"
+                      : "bg-slate-800 border-slate-700 hover:bg-slate-700"
+                  }`}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={props.onCopyBetToAll}
+                className="px-3 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 text-sm"
+              >
+                Copy bet to all
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={props.onAutoPickActive}
+              className="flex-1 px-3 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 text-sm"
+            >
+              Auto-pick 10
+            </button>
+            <button
+              onClick={props.onClearActive}
+              className="flex-1 px-3 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 text-sm"
+            >
+              Clear
+            </button>
+          </div>
+
+          <PaytablePreview spotsPicked={active.picks.length} bet={active.bet} />
+
+          <div className="mt-4">
+            <div className="text-xs text-slate-400 mb-1">Selected</div>
+            <div className="flex flex-wrap gap-1">
+              {active.picks.map((n) => (
+                <span
+                  key={n}
+                  className={`px-2 py-1 rounded text-xs font-bold border ${
+                    isOverlap(props.overlaps, n)
+                      ? "bg-amber-600/30 border-amber-400 text-amber-100"
+                      : "bg-slate-800 border-slate-700 text-slate-200"
+                  }`}
+                >
+                  {n}
+                </span>
+              ))}
+              {active.picks.length === 0 && <span className="text-xs text-slate-500">none</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Number grid */}
+        <div className="md:col-span-2 bg-slate-900/60 border border-slate-700 rounded p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold text-slate-200">Pick Numbers (1–80)</div>
+            <div className="text-xs text-slate-400">Overlaps glow amber</div>
+          </div>
+          <div className="grid grid-cols-10 gap-1 max-h-[520px] overflow-auto p-2 bg-slate-950/40 rounded">
+            {Array.from({ length: 80 }, (_, i) => i + 1).map((n) => {
+              const picked = pickedSet.has(n);
+              const overlap = isOverlap(props.overlaps, n);
+              return (
+                <button
+                  key={n}
+                  onClick={() => togglePick(n)}
+                  className={`h-8 rounded text-xs font-bold border transition ${
+                    picked
+                      ? overlap
+                        ? "bg-amber-500/40 border-amber-300 text-amber-100"
+                        : "bg-purple-600 border-purple-300 text-white"
+                      : overlap
+                        ? "bg-slate-900 border-amber-600/60 text-slate-200"
+                        : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <div className="text-xs text-slate-400">
+              Active cards: {activeCount}/{props.cards.length} • Card {String.fromCharCode(65 + (active.id - 1))}: {active.picks.length}/{SPOTS_PER_CARD} picks
+            </div>
+            <button
+              disabled={!canGoOverview}
+              onClick={props.onPlay}
+              className={`px-4 py-2 rounded font-semibold border ${
+                canGoOverview
+                  ? "bg-purple-600 border-purple-300 hover:bg-purple-700"
+                  : "bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed"
+              }`}
+            >
+              Place Bet / Draw
+            </button>
+          </div>
+          {!canGoOverview && (
+            <div className="mt-2 text-xs text-slate-400">
+              Pick at least 1 number on at least 1 card to continue. (Max {SPOTS_PER_CARD} per card.)
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
